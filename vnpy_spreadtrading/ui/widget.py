@@ -1,7 +1,6 @@
 """
 Widget for spread trading.
 """
-
 from vnpy.event import EventEngine, Event
 from vnpy.trader.engine import MainEngine
 from vnpy.trader.object import LogData
@@ -11,7 +10,7 @@ from vnpy.trader.ui.widget import (
     BaseMonitor, BaseCell,
     BidCell, AskCell,
     TimeCell, PnlCell,
-    DirectionCell, EnumCell,
+    DirectionCell, EnumCell, SymbolCompleter,
 )
 
 from ..engine import (
@@ -44,7 +43,7 @@ class SpreadManager(QtWidgets.QWidget):
         """"""
         self.setWindowTitle("价差交易")
 
-        self.algo_dialog: SpreadAlgoWidget = SpreadAlgoWidget(self.spread_engine)
+        self.algo_dialog: SpreadAlgoWidget = SpreadAlgoWidget(self.main_engine, self.spread_engine)
         algo_group: QtWidgets.QGroupBox = self.create_group("交易", self.algo_dialog)
         algo_group.setMaximumWidth(300)
 
@@ -208,10 +207,11 @@ class SpreadAlgoMonitor(BaseMonitor):
 class SpreadAlgoWidget(QtWidgets.QFrame):
     """"""
 
-    def __init__(self, spread_engine: SpreadEngine) -> None:
+    def __init__(self, main_engine: MainEngine, spread_engine: SpreadEngine) -> None:
         """"""
         super().__init__()
 
+        self.main_engine: MainEngine = main_engine
         self.spread_engine: SpreadEngine = spread_engine
         self.strategy_engine: SpreadStrategyEngine = spread_engine.strategy_engine
 
@@ -339,7 +339,7 @@ class SpreadAlgoWidget(QtWidgets.QFrame):
 
     def add_spread(self) -> None:
         """"""
-        dialog: SpreadDataDialog = SpreadDataDialog(self.spread_engine)
+        dialog: SpreadDataDialog = SpreadDataDialog(self.main_engine, self.spread_engine)
         dialog.exec_()
 
     def remove_spread(self) -> None:
@@ -716,10 +716,10 @@ class SettingEditor(QtWidgets.QDialog):
 class SpreadDataDialog(QtWidgets.QDialog):
     """"""
 
-    def __init__(self, spread_engine: SpreadEngine) -> None:
+    def __init__(self, main_engine: MainEngine, spread_engine: SpreadEngine) -> None:
         """"""
         super().__init__()
-
+        self.main_engine: MainEngine = main_engine
         self.spread_engine: SpreadEngine = spread_engine
 
         self.leg_widgets: list = []
@@ -732,6 +732,7 @@ class SpreadDataDialog(QtWidgets.QDialog):
 
         self.name_line: QtWidgets.QLineEdit = QtWidgets.QLineEdit()
         self.active_line: QtWidgets.QLineEdit = QtWidgets.QLineEdit()
+        self.active_line._completer = SymbolCompleter(line_edit=self.active_line, get_all_contracts=self.main_engine.get_all_contracts,parent=self)
 
         self.min_volume_combo: QtWidgets.QComboBox = QtWidgets.QComboBox()
         self.min_volume_combo.addItems([
@@ -774,6 +775,11 @@ class SpreadDataDialog(QtWidgets.QDialog):
         variables: list = ["A", "B", "C", "D", "E"]
         for i, variable in enumerate(variables):
             symbol_line: QtWidgets.QLineEdit = QtWidgets.QLineEdit()
+            symbol_line._completer = SymbolCompleter(
+                line_edit=symbol_line,
+                get_all_contracts=self.main_engine.get_all_contracts,
+                parent=self
+            )
 
             direction_combo: QtWidgets.QComboBox = QtWidgets.QComboBox()
             direction_combo.addItems(["买入", "卖出"])
