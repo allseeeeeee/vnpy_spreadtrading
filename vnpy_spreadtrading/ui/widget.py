@@ -759,20 +759,17 @@ class SpreadDataDialog(QtWidgets.QDialog):
         grid.addWidget(self.name_line, 0, 1, 1, 4)
         grid.addWidget(Label("主动腿代码"), 1, 0)
         grid.addWidget(self.active_line, 1, 1, 1, 4)
-        grid.addWidget(Label("最小交易量"), 2, 0)
-        grid.addWidget(self.min_volume_combo, 2, 1, 1, 4)
-        grid.addWidget(Label("价格公式"), 3, 0)
-        grid.addWidget(self.formula_line, 3, 1, 1, 4)
 
-        grid.addWidget(Label("合约代码"), 4, 1)
-        grid.addWidget(Label("交易方向"), 4, 2)
-        grid.addWidget(Label("交易乘数"), 4, 3)
+        grid.addWidget(Label("合约代码"), 2, 1)
+        grid.addWidget(Label("交易方向"), 2, 2)
+        grid.addWidget(Label("交易乘数"), 2, 3)
 
         int_validator: QtGui.QIntValidator = QtGui.QIntValidator()
         int_validator.setBottom(0)
 
-        leg_count: int = 5
+
         variables: list = ["A", "B", "C", "D", "E"]
+        leg_count: int = len(variables)
         for i, variable in enumerate(variables):
             symbol_line: QtWidgets.QLineEdit = QtWidgets.QLineEdit()
             symbol_line._completer = SymbolCompleter(
@@ -784,14 +781,16 @@ class SpreadDataDialog(QtWidgets.QDialog):
 
             direction_combo: QtWidgets.QComboBox = QtWidgets.QComboBox()
             direction_combo.addItems(["买入", "卖出"])
+            direction_combo.currentIndexChanged.connect(self.generate_spread_formula)
 
             trading_line: QtWidgets.QLineEdit = QtWidgets.QLineEdit()
             trading_line.setValidator(int_validator)
+            trading_line.textChanged.connect(self.generate_spread_formula)
 
-            grid.addWidget(Label(variable), 5 + i, 0)
-            grid.addWidget(symbol_line, 5 + i, 1)
-            grid.addWidget(direction_combo, 5 + i, 2)
-            grid.addWidget(trading_line, 5 + i, 3)
+            grid.addWidget(Label(variable), 3 + i, 0)
+            grid.addWidget(symbol_line, 3 + i, 1)
+            grid.addWidget(direction_combo, 3 + i, 2)
+            grid.addWidget(trading_line, 3 + i, 3)
 
             d: dict = {
                 "variable": variable,
@@ -801,10 +800,39 @@ class SpreadDataDialog(QtWidgets.QDialog):
             }
             self.leg_widgets.append(d)
 
+
+        grid.addWidget(Label("价格公式"), 3 + leg_count, 0)
+        grid.addWidget(self.formula_line, 3 + leg_count, 1, 1, 4)
+        grid.addWidget(Label("最小交易量"), 4  + leg_count, 0)
+        grid.addWidget(self.min_volume_combo, 4  + leg_count, 1, 1, 4)
+
         grid.addWidget(Label(""), 5 + leg_count, 0,)
         grid.addWidget(button_add, 6 + leg_count, 0, 1, 5)
 
+        self.active_line.textChanged.connect(lambda t: self.leg_widgets[0]['symbol'].setText(t))
+
         self.setLayout(grid)
+
+    def generate_spread_formula(self):
+        formula = []
+        active_symbol = self.active_line.text()
+        active_leg = next(leg for leg in self.leg_widgets if leg['symbol'].text() == active_symbol)
+        active_leg_direction = active_leg['direction'].currentText()
+        active_leg_variable = active_leg['variable']
+        formula.append(f"{active_leg_variable}*{active_leg['trading'].text()}")
+        for leg in self.leg_widgets:
+            vt_symbol = leg['symbol'].text()
+            trading_multiplier = leg['trading'].text()
+            if not vt_symbol or not trading_multiplier:
+                continue
+
+            if vt_symbol != active_symbol:
+                variable = leg['variable']
+                direction = leg['direction'].currentText()
+
+                flag = " + " if direction == active_leg_direction else " - "
+                formula.append(f"{flag}{variable}*{trading_multiplier}")
+        self.formula_line.setText("".join(formula))
 
     def add_spread(self) -> None:
         """"""
