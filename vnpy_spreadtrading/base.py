@@ -20,6 +20,7 @@ EVENT_SPREAD_POS = "eSpreadPos"
 EVENT_SPREAD_LOG = "eSpreadLog"
 EVENT_SPREAD_ALGO = "eSpreadAlgo"
 EVENT_SPREAD_STRATEGY = "eSpreadStrategy"
+EVENT_SPREAD_ADD_DEL = "eSpreadAddDel"
 
 LOCAL_TZ = ZoneInfo(get_localzone_name())
 

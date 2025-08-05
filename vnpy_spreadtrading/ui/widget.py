@@ -12,6 +12,7 @@ from vnpy.trader.ui.widget import (
     TimeCell, PnlCell,
     DirectionCell, EnumCell, SymbolCompleter,
 )
+from ..base import EVENT_SPREAD_ADD_DEL
 
 from ..engine import (
     SpreadEngine,
@@ -23,6 +24,14 @@ from ..engine import (
     EVENT_SPREAD_ALGO,
     EVENT_SPREAD_STRATEGY
 )
+
+from .display import NAME_DISPLAY_MAP
+
+
+class SpreadSignals(QtCore.QObject):
+    spread_changed: QtCore.Signal = QtCore.Signal(Event)
+
+spread_signals = SpreadSignals()
 
 
 class SpreadManager(QtWidgets.QWidget):
@@ -216,6 +225,8 @@ class SpreadAlgoWidget(QtWidgets.QFrame):
         self.strategy_engine: SpreadStrategyEngine = spread_engine.strategy_engine
 
         self.init_ui()
+        self.main_engine.event_engine.register(EVENT_SPREAD_ADD_DEL, spread_signals.spread_changed.emit)
+        spread_signals.spread_changed.connect(self.update_spread_combo)
 
     def init_ui(self) -> None:
         """"""
@@ -223,7 +234,8 @@ class SpreadAlgoWidget(QtWidgets.QFrame):
         self.setFrameShape(self.Shape.Box)
         self.setLineWidth(1)
 
-        self.name_line: QtWidgets.QLineEdit = QtWidgets.QLineEdit()
+        # self.name_line: QtWidgets.QLineEdit = QtWidgets.QLineEdit()
+        self.name_combo: QtWidgets.QComboBox = QtWidgets.QComboBox()
 
         self.direction_combo: QtWidgets.QComboBox = QtWidgets.QComboBox()
         self.direction_combo.addItems(
@@ -275,7 +287,7 @@ class SpreadAlgoWidget(QtWidgets.QFrame):
         remove_spread_button.clicked.connect(self.remove_spread)
 
         form: QtWidgets.QFormLayout = QtWidgets.QFormLayout()
-        form.addRow("价差", self.name_line)
+        form.addRow("价差", self.name_combo)
         form.addRow("方向", self.direction_combo)
         form.addRow("价格", self.price_line)
         form.addRow("数量", self.volume_line)
@@ -327,7 +339,7 @@ class SpreadAlgoWidget(QtWidgets.QFrame):
                 return
 
         self.spread_engine.start_algo(
-            spread_name=self.name_line.text(),
+            spread_name=self.name_combo.currentText(),
             direction=Direction(self.direction_combo.currentText()),
             price=float(price_text),
             volume=float(volume_text),
@@ -346,6 +358,12 @@ class SpreadAlgoWidget(QtWidgets.QFrame):
         """"""
         dialog: SpreadRemoveDialog = SpreadRemoveDialog(self.spread_engine)
         dialog.exec_()
+
+    def update_spread_combo(self, event: Event):
+        self.name_combo.clear()
+        self.name_combo.addItems(
+            self.spread_engine.get_all_spread_names()
+        )
 
     def update_class_combo(self) -> None:
         """"""
@@ -367,7 +385,7 @@ class SpreadAlgoWidget(QtWidgets.QFrame):
 
         parameters: dict = self.spread_engine.get_strategy_class_parameters(
             class_name)
-        editor: SettingEditor = SettingEditor(parameters, class_name=class_name)
+        editor: SettingEditor = SettingEditor(parameters, class_name=class_name, spread_names=self.spread_engine.get_all_spread_names())
         n: int = editor.exec_()
 
         if n == editor.DialogCode.Accepted:
@@ -640,7 +658,7 @@ class SettingEditor(QtWidgets.QDialog):
     """
 
     def __init__(
-        self, parameters: dict, strategy_name: str = "", class_name: str = ""
+        self, parameters: dict, strategy_name: str = "", class_name: str = "", spread_names: list[str] = None
     ) -> None:
         """"""
         super().__init__()
@@ -648,6 +666,7 @@ class SettingEditor(QtWidgets.QDialog):
         self.parameters: dict = parameters
         self.strategy_name: str = strategy_name
         self.class_name: str = class_name
+        self.spread_names = spread_names
 
         self.edits: dict = {}
 
@@ -671,15 +690,20 @@ class SettingEditor(QtWidgets.QDialog):
         for name, value in parameters.items():
             type_ = type(value)
 
-            edit: QtWidgets.QLineEdit = QtWidgets.QLineEdit(str(value))
-            if type_ is int:
-                validator: QtGui.QIntValidator = QtGui.QIntValidator()
-                edit.setValidator(validator)
-            elif type_ is float:
-                validator = QtGui.QDoubleValidator()
-                edit.setValidator(validator)
+            if name == 'spread_name' and self.spread_names:
+                edit: QtWidgets.QComboBox = QtWidgets.QComboBox()
+                edit.addItems(self.spread_names)
+            else:
+                edit: QtWidgets.QLineEdit = QtWidgets.QLineEdit(str(value))
+                if type_ is int:
+                    validator: QtGui.QIntValidator = QtGui.QIntValidator()
+                    edit.setValidator(validator)
+                elif type_ is float:
+                    validator = QtGui.QDoubleValidator()
+                    edit.setValidator(validator)
 
-            form.addRow(f"{name} {type_}", edit)
+            display_name: str = NAME_DISPLAY_MAP.get(name, f"{name} {type_}")
+            form.addRow(display_name, edit)
 
             self.edits[name] = (edit, type_)
 
@@ -698,7 +722,10 @@ class SettingEditor(QtWidgets.QDialog):
 
         for name, tp in self.edits.items():
             edit, type_ = tp
-            value_text = edit.text()
+            if name == 'spread_name' and self.spread_names:
+                value_text = edit.currentText()
+            else:
+                value_text = edit.text()
 
             if type_ is bool:
                 if value_text == "True":

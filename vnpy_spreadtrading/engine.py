@@ -31,7 +31,7 @@ from .base import (
     LegData, SpreadData,
     EVENT_SPREAD_DATA, EVENT_SPREAD_POS,
     EVENT_SPREAD_ALGO, EVENT_SPREAD_LOG,
-    EVENT_SPREAD_STRATEGY,
+    EVENT_SPREAD_STRATEGY, EVENT_SPREAD_ADD_DEL,
     load_bar_data, load_tick_data,
     EngineType
 )
@@ -375,6 +375,7 @@ class SpreadDataEngine:
             self.save_setting()
 
         self.write_log(f"价差创建成功：{name}")
+        self.event_engine.put(Event(EVENT_SPREAD_ADD_DEL, {"name": name, "op": "add"}))
         self.put_data_event(spread)
 
     def remove_spread(self, name: str) -> None:
