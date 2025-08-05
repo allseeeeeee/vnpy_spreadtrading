@@ -732,7 +732,7 @@ class SpreadDataDialog(QtWidgets.QDialog):
 
         self.name_line: QtWidgets.QLineEdit = QtWidgets.QLineEdit()
         self.active_line: QtWidgets.QLineEdit = QtWidgets.QLineEdit()
-        self.active_line._completer = SymbolCompleter(line_edit=self.active_line, get_all_contracts=self.main_engine.get_all_contracts,parent=self)
+        self.active_line._completer = SymbolCompleter(line_edit=self.active_line, get_all_contracts=self.main_engine.get_all_contracts, vt_mode=True, parent=self)
 
         self.min_volume_combo: QtWidgets.QComboBox = QtWidgets.QComboBox()
         self.min_volume_combo.addItems([
@@ -778,6 +778,7 @@ class SpreadDataDialog(QtWidgets.QDialog):
             symbol_line._completer = SymbolCompleter(
                 line_edit=symbol_line,
                 get_all_contracts=self.main_engine.get_all_contracts,
+                vt_mode=True,
                 parent=self
             )
 
